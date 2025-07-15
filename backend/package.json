@@ -1,0 +1,52 @@
+{
+  "name": "express-react-authjs-example-backend",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "concurrently \"npx tsc --watch\" \"nodemon -q dist/src/index.js\"",
+    "build": "npx tsc",
+    "start": "node dist/src/index.js",
+    "db:generate": "npx drizzle-kit generate",
+    "db:migrate": "npx drizzle-kit migrate",
+    "db:update": "npm run db:generate && npm run db:migrate",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:studio": "npx drizzle-kit studio",
+    "create-admin": "tsx src/db/createAdminUser.ts"
+  },
+  "author": "Dean Brown",
+  "license": "MIT",
+  "description": "",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "drizzle-orm": "^0.44.2",
+    "drizzle-zod": "^0.8.2",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "pg": "^8.16.0",
+    "prompts": "^2.4.2",
+    "tsx": "^4.20.3",
+    "zod": "^3.25.64"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^9.8.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/express-session": "^1.18.2",
+    "@types/node": "^24.0.1",
+    "@types/passport": "^1.0.17",
+    "@types/passport-local": "^1.0.38",
+    "@types/pg": "^8.15.4",
+    "@types/prompts": "^2.4.9",
+    "concurrently": "^9.1.2",
+    "drizzle-kit": "^0.31.1",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.8.3"
+  }
+}

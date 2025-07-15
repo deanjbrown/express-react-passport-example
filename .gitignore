@@ -1,0 +1,45 @@
+# Ignore all node_modules
+node_modules/
+
+# Ignore all dist or build output folders
+dist/
+build/
+
+# Ignore all .env files
+.env
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# macOS system files
+.DS_Store
+
+# Docker volumes and generated data
+**/pgdata/
+**/data/
+**/tmp/
+
+# Express-specific
+/express-backend/coverage/
+
+# Vite/React-specific
+.react/
+.vite/
+.next/
+*.tsbuildinfo
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Misc
+*.swp
+*.swo
+*.bak
+*.tmp
