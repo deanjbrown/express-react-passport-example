@@ -5,10 +5,11 @@ This is a simple starting point for an app with an Express backend, React fronte
 ## Development
 
 **Features currently in development**
-- Adding rate limiting
+- Adding rate limiting ✔️
 - Adding CSRF protection
 - Adding email verification
 - Creating a frontend to interact with the backend
+- Adding tests
 
 To contribute to the development or to customize the application:
 
