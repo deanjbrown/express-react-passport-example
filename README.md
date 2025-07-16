@@ -6,7 +6,7 @@ This is a simple starting point for an app with an Express backend, React fronte
 
 **Features currently in development**
 - Adding rate limiting ✔️
-- Adding CSRF protection
+- Adding CSRF protection ✔️
 - Adding email verification
 - Creating a frontend to interact with the backend
 - Adding tests
