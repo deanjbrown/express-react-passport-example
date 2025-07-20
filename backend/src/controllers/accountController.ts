@@ -1,6 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import passport from "passport";
-import { registerUserService } from "../services/accountService";
+import {
+  registerUserService,
+  verifyUserService,
+} from "../services/accountService";
 import { SessionUser } from "../types/services/user";
 
 /**
@@ -64,7 +67,9 @@ export async function logoutUserController(
  */
 export async function registerUserController(req: Request, res: Response) {
   try {
-    const userRegisterServiceResult = await registerUserService(req.body.validatedData);
+    const userRegisterServiceResult = await registerUserService(
+      req.body.validatedData
+    );
     if (userRegisterServiceResult.success) {
       res.status(201).json(userRegisterServiceResult.data);
     } else {
@@ -75,8 +80,26 @@ export async function registerUserController(req: Request, res: Response) {
   }
 }
 
-// TODO => Set up email verification
-export async function verifyController(req: Request, res: Response) {}
+/**
+ * verifyController
+ *
+ * Uses the verifyUserService to validate and verify a user
+ * Returns success message or an error
+ */
+export async function verifyController(req: Request, res: Response) {
+  try {
+    const verifyUserServiceResult = await verifyUserService(
+      req.body.validatedData
+    );
+    if (verifyUserServiceResult.success) {
+      res.status(200).json(verifyUserServiceResult.data);
+    } else {
+      res.status(400).json(verifyUserServiceResult);
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
 
 /**
  * userInfoController

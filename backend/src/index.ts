@@ -2,10 +2,10 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import session from "express-session";
-import env from "./utils/env";
 import passport from "passport";
 import accountRoutes from "./routes/accountRoutes";
-import passportConfig from "./utils/passportConfig";
+import passportConfig from "./utils/auth";
+import env from "./utils/env";
 import postRoutes from "./routes/postRoutes";
 import adminRoutes from "./routes/adminRoutes";
 

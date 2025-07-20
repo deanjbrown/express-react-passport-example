@@ -10,6 +10,7 @@ import { validateSchemaMiddleware } from "../middleware/validationMiddleware";
 import { userLoginSchema, userRegisterSchema } from "../db/schema/user";
 import { isAuthenticated } from "../middleware/accountMiddleware";
 import { authRateLimit } from "../middleware/rateLimitMiddleware";
+import { validateVerificationCodeSchema } from "../db/schema/verificationCode";
 
 // Define account routes
 const accountRoutes: Router = Router();
@@ -31,7 +32,12 @@ accountRoutes.post(
   registerUserController
 );
 accountRoutes.post("/logout", logoutUserController);
-accountRoutes.post("/verify", authRateLimit, isAuthenticated, verifyController);
+accountRoutes.post(
+  "/verify",
+  authRateLimit,
+  validateSchemaMiddleware(validateVerificationCodeSchema),
+  verifyController
+);
 accountRoutes.get("/me", isAuthenticated, userInfoController);
 
 export default accountRoutes;

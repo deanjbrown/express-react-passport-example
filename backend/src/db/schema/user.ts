@@ -10,6 +10,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import z from "zod/v4";
 import { posts } from "./post";
+import { verificationCodes } from "./verificationCode";
 
 // Define user roles
 export const userRoles = pgEnum("user_roles", ["admin", "user"]);
@@ -30,6 +31,7 @@ export const users = pgTable("users", {
 // Define user relationsships
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
+  verificationCodes: many(verificationCodes)
 }));
 
 // Define a base schema for creating a user

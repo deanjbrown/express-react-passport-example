@@ -12,7 +12,12 @@ const envSchema = z.object({
   POSTGRES_PASSWORD: z.string().min(1),
   POSTGRES_DB: z.string().min(1),
   POSTGRES_SSL: z.string().transform((val) => (val === "true" ? true : false)),
-  PASSPORT_SECRET: z.string().min(1)
+  PASSPORT_SECRET: z.string().min(1),
+  EMAIL_SERVICE: z.string().min(1),
+  EMAIL_PORT: z.coerce.number().min(1),
+  EMAIL_SECURE: z.string().transform((val) => (val === "true" ? true : false)),
+  EMAIL_ADDRESS: z.string().min(1),
+  EMAIL_PASSWORD: z.string().min(1),
 });
 
 // Import the environment variables

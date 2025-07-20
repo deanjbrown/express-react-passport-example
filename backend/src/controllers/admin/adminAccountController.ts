@@ -83,7 +83,6 @@ export async function adminDeleteUserController(req: Request, res: Response) {
       res.status(400).json(deleteUserResult);
     }
   } catch (error) {
-    console.error(`[-] adminDeleteUserController - Error: ${error}`);
     res.status(500).json({ error: "Internal server error" });
   }
 }

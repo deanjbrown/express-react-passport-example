@@ -20,7 +20,7 @@ async function mock(): Promise<InferInsertModel<typeof users>[]> {
       firstName: faker.person.firstName(),
       lastName: faker.person.lastName(),
       email: faker.internet.email().toLowerCase(),
-      password: hashedPassword
+      password: hashedPassword,
     });
   }
   return data;

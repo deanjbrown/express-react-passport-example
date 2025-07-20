@@ -7,8 +7,15 @@ import {
   UserListResult,
   UserLoginResult,
   UserRegisterResult,
+  VerifyUserResult,
 } from "../types/services/user";
 import { db } from "../db";
+import { generateSecureToken, sanitizeUser } from "../utils/auth";
+import { sendVerificationEmail } from "./emailService";
+import {
+  ValidateVerificationCodeSchema,
+  verificationCodes,
+} from "../db/schema/verificationCode";
 
 /**
  *
@@ -46,9 +53,9 @@ export async function loginUserService(
     };
   }
 
-  // Remove the password from the retrievedUser object before returning to the controller
-  const { password: _password, ...safeUser } = retrievedUser;
-  return { success: true, data: safeUser satisfies SessionUser };
+  // Sanitize the user object before returning
+  const safeUser = sanitizeUser(retrievedUser);
+  return { success: true, data: safeUser };
 }
 
 /**
@@ -76,28 +83,59 @@ export async function registerUserService(
   // Hash the password
   const hashedPassword = await hash(newUser.password, 10);
 
-  // Insert the user into the database
-  const [insertedUser] = await db
-    .insert(users)
-    .values({ ...newUser, password: hashedPassword })
-    .returning();
+  // generate the verification code
+  const verificationCode = generateSecureToken(32);
 
-  if (!insertedUser) {
-    return {
-      success: false,
-      error: "Could not insert user into database",
-    };
+  // Use a transaction to avoid partial inserts
+  try {
+    const { insertedUser, insertedVerificationCode } = await db.transaction(
+      async (tx) => {
+        const [insertedUser] = await tx
+          .insert(users)
+          .values({
+            ...newUser,
+            password: hashedPassword,
+          })
+          .returning();
+
+        if (!insertedUser) {
+          throw new Error("Failed to insert user");
+        }
+
+        const [insertedVerificationCode] = await tx
+          .insert(verificationCodes)
+          .values({
+            userId: insertedUser.id,
+            type: "register",
+            code: verificationCode,
+            expiresAt: new Date(Date.now() + 1000 * 60 * 30), // 30 mins
+          })
+          .returning();
+
+        if (!insertedVerificationCode) {
+          throw new Error("Failed to insert verification code");
+        }
+
+        return { insertedUser, insertedVerificationCode };
+      }
+    );
+
+    // Sanitize the user before returning
+    const safeUser = sanitizeUser(insertedUser);
+
+    // Send the verification email
+    sendVerificationEmail(insertedUser.email, verificationCode);
+
+    // Return the inserted safe inserted user
+    return { success: true, data: safeUser };
+  } catch (error) {
+    return { success: false, error: "Failed to register user" };
   }
-
-  // Remove the password from the insertedUser
-  const { password: password_, ...safeUser } = insertedUser;
-
-  // Return the inserted safe inserted user
-  return { success: true, data: safeUser };
 }
 
 /**
  * getAllUsersService
+ * 
  * @returns success / failure message and an array of session users or an error
  */
 export async function getAllUsersService(): Promise<UserListResult> {
@@ -106,10 +144,8 @@ export async function getAllUsersService(): Promise<UserListResult> {
     return { success: false, error: "Could not retrieve users from database" };
   }
 
-  // Remove the password from each user
-  const safeUsers = allUsers.map(
-    ({ password: _password, ...safeUser }) => safeUser
-  );
+  // Sanitize all users
+  const safeUsers = allUsers.map((user) => sanitizeUser(user));
 
   return { success: true, data: safeUsers };
 }
@@ -125,19 +161,20 @@ export async function getAllUsersService(): Promise<UserListResult> {
 export async function userGetByIdService(
   userId: number
 ): Promise<UserRegisterResult> {
+  // Retrieve the user from the database
   const [retrievedUser] = await db
     .select()
     .from(users)
     .where(eq(users.id, userId));
 
+  // If the user does not exist, return an error
   if (!retrievedUser) {
     return { success: false, error: "User not found" };
   }
 
-  // Remove the password from the retrievedUser
-  const { password: _password, ...safeUser } = retrievedUser;
-
-  return { success: true, data: safeUser satisfies SessionUser };
+  // Sanitize the user before returning
+  const safeUser = sanitizeUser(retrievedUser);
+  return { success: true, data: safeUser };
 }
 
 /**
@@ -181,7 +218,8 @@ export async function updateUserService(
     .where(eq(users.id, userId))
     .returning();
 
-  const { password: password_, ...safeUser } = updatedUser;
+  // Sanitize the user before returning
+  const safeUser = sanitizeUser(updatedUser);
 
   if (updatedUser) {
     return { success: true, data: safeUser satisfies SessionUser };
@@ -205,11 +243,80 @@ export async function deleteUserService(
     .where(eq(users.id, userId))
     .returning();
 
-  const { password: password_, ...safeUser } = deletedUser;
+  // Sanitize user before returning
+  const safeUser = sanitizeUser(deletedUser);
 
   if (deletedUser) {
-    return { success: true, data: safeUser satisfies SessionUser };
+    return { success: true, data: safeUser };
   } else {
     return { success: false, error: "Could not delete user from database" };
   }
+}
+
+/**
+ * verifyUserService
+ *
+ * @param verificationCode
+ * @returns
+ */
+export async function verifyUserService(
+  verificationCode: ValidateVerificationCodeSchema
+): Promise<VerifyUserResult> {
+  // Retrieve both user and verification code
+  const [{ retrievedVerificationCode, retrievedUser }] = await db
+    .select({
+      retrievedVerificationCode: verificationCodes,
+      retrievedUser: users,
+    })
+    .from(verificationCodes)
+    .innerJoin(users, eq(verificationCodes.userId, users.id))
+    .where(eq(verificationCodes.code, verificationCode.code));
+
+  // Check if the code exists, hasn't been used, and hasn't expired
+  if (
+    !retrievedVerificationCode ||
+    retrievedVerificationCode.isUsed ||
+    new Date() > retrievedVerificationCode.expiresAt
+  ) {
+    return {
+      success: false,
+      error: "Invalid verification code or code has expired",
+    };
+  }
+
+  // Use a transaction to avoid partial update
+  try {
+    await db.transaction(async (tx) => {
+      // Update the verification code
+      const [updatedVerificationCode] = await tx
+        .update(verificationCodes)
+        .set({
+          isUsed: true,
+          usedAt: new Date(),
+        })
+        .where(eq(verificationCodes.id, retrievedVerificationCode.id))
+        .returning();
+
+      // Throw an error if we have been unable to update the verification code
+      if (!updatedVerificationCode) {
+        throw new Error("Failed to update verification code");
+      }
+
+      // Update the user
+      const updatedUser = await tx
+        .update(users)
+        .set({ isVerified: true })
+        .where(eq(users.id, retrievedUser.id))
+        .returning();
+
+      // Throw an error if we have been unable to update the user
+      if (!updatedUser) {
+        throw new Error("Failed to update user");
+      }
+    });
+  } catch (error) {
+    return { success: false, error: "Failed update the user" };
+  }
+
+  return { success: true, data: "Account verified" };
 }

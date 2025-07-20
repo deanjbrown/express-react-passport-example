@@ -1,7 +1,10 @@
+import crypto from "crypto";
+
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { SessionUser } from "../types/services/user";
 import { loginUserService } from "../services/accountService";
+import { SelectUserModel } from "../db/schema/user";
 
 // Define the passport config and strategies
 export default function passportConfig() {
@@ -43,4 +46,15 @@ export default function passportConfig() {
       return cb(null, user);
     });
   });
+}
+
+// Generates a token (for email verification / password reset / etc)
+export function generateSecureToken(length: number = 32) {
+  return crypto.randomBytes(length).toString("hex");
+}
+
+// Removes sensitive fields from a user object and returns
+export function sanitizeUser(unsafeUser: SelectUserModel): SessionUser {
+  const { password: password_, ...safeUser } = unsafeUser satisfies SessionUser;
+  return safeUser;
 }

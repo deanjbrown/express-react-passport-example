@@ -6,3 +6,4 @@ export type UserRegisterResult = ServiceResult<SessionUser>;
 export type UserLoginResult = ServiceResult<SessionUser>;
 export type UserListResult = ServiceResult<SessionUser[]>;
 export type UserDeleteResult = ServiceResult<SessionUser>;
+export type VerifyUserResult = ServiceResult<string>;
