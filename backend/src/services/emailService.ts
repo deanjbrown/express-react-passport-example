@@ -37,7 +37,7 @@ export function sendPasswordResetEmail(to: string, verificationCode: string) {
   const content = `
   <h1>Reset your password</h1>
 
-  <p>Please click the following link to verify your account</p>
+  <p>Please click the following link to reset your password</p>
   <a href="${passwordResetURL}">Reset Password</a>
 
   <p>If you can't click the link above, please copy and paste the following link into your browser</p>

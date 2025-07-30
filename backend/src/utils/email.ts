@@ -28,7 +28,8 @@ export default function sendEmail(
     from: env.EMAIL_ADDRESS,
     to,
     subject,
-    text: content,
+    html: content,
+    text: content.replace(/<[^>]*>/g, ""), // Fallback for plain text
   };
 
   transporter.sendMail(options, (error, info) => {
