@@ -1,7 +1,15 @@
 import { compare, hash } from "bcrypt";
 import { eq } from "drizzle-orm";
-import { UserRegisterSchema, users, UserUpdateSchema } from "../db/schema/user";
 import {
+  UserPasswordResetRequestSchema,
+  UserRegisterSchema,
+  users,
+  userUpdateSchema,
+  UserUpdateSchema,
+  ChangePasswordSchema,
+} from "../db/schema/user";
+import {
+  PasswordResetResult,
   SessionUser,
   UserDeleteResult,
   UserListResult,
@@ -10,12 +18,18 @@ import {
   VerifyUserResult,
 } from "../types/services/user";
 import { db } from "../db";
-import { generateSecureToken, sanitizeUser } from "../utils/auth";
-import { sendVerificationEmail } from "./emailService";
+import {
+  generateSecureToken,
+  getVerificationCodeExpiryDate,
+  sanitizeUser,
+} from "../utils/auth";
+import { sendPasswordResetEmail, sendVerificationEmail } from "./emailService";
 import {
   ValidateVerificationCodeSchema,
   verificationCodes,
 } from "../db/schema/verificationCode";
+import { verificationCodeGetByCode } from "./verificationCodeService";
+import { ServiceResult } from "../types/services/serviceResult";
 
 /**
  *
@@ -108,7 +122,7 @@ export async function registerUserService(
             userId: insertedUser.id,
             type: "register",
             code: verificationCode,
-            expiresAt: new Date(Date.now() + 1000 * 60 * 30), // 30 mins
+            expiresAt: getVerificationCodeExpiryDate(),
           })
           .returning();
 
@@ -135,7 +149,7 @@ export async function registerUserService(
 
 /**
  * getAllUsersService
- * 
+ *
  * @returns success / failure message and an array of session users or an error
  */
 export async function getAllUsersService(): Promise<UserListResult> {
@@ -173,6 +187,30 @@ export async function userGetByIdService(
   }
 
   // Sanitize the user before returning
+  const safeUser = sanitizeUser(retrievedUser);
+  return { success: true, data: safeUser };
+}
+
+/**
+ *
+ * @param userEmail The email address of the user to retrieve
+ * @returns success / failure message and a session user or an error
+ */
+export async function userGetByEmailService(
+  userEmail: string
+): Promise<UserRegisterResult> {
+  // Retrieve the user from the database
+  const [retrievedUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, userEmail));
+
+  // If the user does not exist, return an error
+  if (!retrievedUser) {
+    return { success: false, error: "User not found" };
+  }
+
+  // Santitize the user before returning
   const safeUser = sanitizeUser(retrievedUser);
   return { success: true, data: safeUser };
 }
@@ -272,7 +310,7 @@ export async function verifyUserService(
     .innerJoin(users, eq(verificationCodes.userId, users.id))
     .where(eq(verificationCodes.code, verificationCode.code));
 
-  // Check if the code exists, hasn't been used, and hasn't expired
+  // Check the code exists, hasn't been used, and hasn't expired
   if (
     !retrievedVerificationCode ||
     retrievedVerificationCode.isUsed ||
@@ -319,4 +357,161 @@ export async function verifyUserService(
   }
 
   return { success: true, data: "Account verified" };
+}
+
+/**
+ * passwordResetRequestService
+ *
+ * @param userId The ID of the user to create the password reset for
+ * @returns Success message or an error
+ */
+export async function passwordResetRequestService(
+  userData: UserPasswordResetRequestSchema
+): Promise<PasswordResetResult> {
+  // Retrieve the user
+  const retrievedUserResult = await userGetByEmailService(userData.email);
+
+  // Check if the user exists
+  if (!retrievedUserResult.success) {
+    return { success: false, error: "Error resetting password" };
+  }
+
+  // Check if the user is verified
+  if (!retrievedUserResult.data.isVerified) {
+    return { success: false, error: "User is not verified" };
+  }
+
+  // Generate a password reset verification code
+  const passwordResetToken = generateSecureToken(32);
+  const [insertedVerificationCode] = await db
+    .insert(verificationCodes)
+    .values({
+      userId: retrievedUserResult.data.id,
+      type: "passwordReset",
+      code: passwordResetToken,
+      expiresAt: getVerificationCodeExpiryDate(),
+    })
+    .returning();
+
+  if (insertedVerificationCode) {
+    sendPasswordResetEmail(userData.email, insertedVerificationCode.code);
+    return { success: true, data: "Password reset email sent" };
+  } else {
+    return { success: false, error: "Could not reset password" };
+  }
+}
+
+/**
+ * passwordResetVerifyService
+ *
+ * @param verificationCode
+ * @returns
+ */
+export async function passwordResetVerifyService(
+  verificationCode: ValidateVerificationCodeSchema
+): Promise<ServiceResult<string>> {
+  // Retrieve the verification code
+  const retrievedVerificationCodeResult = await verificationCodeGetByCode(
+    verificationCode.code
+  );
+
+  // Check the code exists, hasn't been used, and hasn't expired
+  if (
+    !retrievedVerificationCodeResult.success ||
+    retrievedVerificationCodeResult.data.isUsed ||
+    new Date() > retrievedVerificationCodeResult.data.expiresAt
+  ) {
+    return {
+      success: false,
+      error: "Invalid verification code or code has expired",
+    };
+  }
+
+  return { success: true, data: "Verification code valid" };
+}
+
+/**
+ * passwordResetChangePasswordService
+ * @param changePasswordData
+ * @returns
+ */
+export async function passwordResetChangePasswordService(
+  changePasswordData: ChangePasswordSchema
+): Promise<ServiceResult<string>> {
+  // Validate the code again:
+  const retrievedVerificationCodeResult = await verificationCodeGetByCode(
+    changePasswordData.code
+  );
+
+  // Check the code exists, hasn't been used, and hasn't expired
+  if (
+    !retrievedVerificationCodeResult.success ||
+    retrievedVerificationCodeResult.data.isUsed ||
+    new Date() > retrievedVerificationCodeResult.data.expiresAt
+  ) {
+    return {
+      success: false,
+      error: "Invalid verification code or code has expired",
+    };
+  }
+
+  // Retrieve the user based on the userId
+  const retrievedUserResult = await userGetByIdService(
+    retrievedVerificationCodeResult.data.userId
+  );
+  if (!retrievedUserResult.success) {
+    return { success: false, error: "User not found" };
+  }
+
+  // Ensure the users data, including the new password and repeat password is valid:
+  const validatedUserData = userUpdateSchema.safeParse({
+    ...retrievedUserResult.data,
+    password: changePasswordData.password,
+    confirmPassword: changePasswordData.password,
+  });
+
+  if (!validatedUserData.success) {
+    return { success: false, error: validatedUserData.error.issues[0].message };
+  }
+
+  // Hash the new password
+  const hashedPassword = await hash(validatedUserData.data.password, 10);
+
+  // Update the user and the verification code in a transaction to avoid partial updates
+  try {
+    await db.transaction(async (tx) => {
+      const [updatedUser] = await tx
+        .update(users)
+        .set({
+          password: hashedPassword,
+        })
+        .where(eq(users.id, retrievedUserResult.data.id))
+        .returning();
+
+      if (!updatedUser) {
+        throw new Error("Failed to update user");
+      }
+
+      const [updatedVerificationCode] = await tx
+        .update(verificationCodes)
+        .set({
+          isUsed: true,
+          usedAt: new Date(),
+        })
+        .where(
+          eq(verificationCodes.id, retrievedVerificationCodeResult.data.id)
+        )
+        .returning();
+
+      if (!updatedVerificationCode) {
+        throw new Error("Failed to update verification code");
+      }
+
+      return { updatedUser, updatedVerificationCode };
+    });
+  } catch (error) {
+    return { success: false, error: "Failed to change password" };
+  }
+
+  return { success: true, data: "User updated successfully" };
 }

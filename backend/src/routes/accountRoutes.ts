@@ -1,16 +1,24 @@
 import { Router } from "express";
 import {
+  passwordResetChangePasswordController,
   loginLocalController,
   logoutUserController,
+  passwordResetRequestController,
+  passwordResetVerifyController,
   registerUserController,
   userInfoController,
   verifyController,
 } from "../controllers/accountController";
 import { validateSchemaMiddleware } from "../middleware/validationMiddleware";
-import { userLoginSchema, userRegisterSchema } from "../db/schema/user";
+import {
+  userLoginSchema,
+  userPasswordResetRequestSchema,
+  userRegisterSchema,
+} from "../db/schema/user";
 import { isAuthenticated } from "../middleware/accountMiddleware";
 import { authRateLimit } from "../middleware/rateLimitMiddleware";
 import { validateVerificationCodeSchema } from "../db/schema/verificationCode";
+import { changePasswordSchema } from "../db/schema/user";
 
 // Define account routes
 const accountRoutes: Router = Router();
@@ -37,6 +45,25 @@ accountRoutes.post(
   authRateLimit,
   validateSchemaMiddleware(validateVerificationCodeSchema),
   verifyController
+);
+
+accountRoutes.post(
+  "/password_reset",
+  authRateLimit,
+  validateSchemaMiddleware(userPasswordResetRequestSchema),
+  passwordResetRequestController
+);
+accountRoutes.post(
+  "/verify_password_reset",
+  authRateLimit,
+  validateSchemaMiddleware(validateVerificationCodeSchema),
+  passwordResetVerifyController
+);
+accountRoutes.post(
+  "/verify_password_reset/change_password",
+  authRateLimit,
+  validateSchemaMiddleware(changePasswordSchema),
+  passwordResetChangePasswordController
 );
 accountRoutes.get("/me", isAuthenticated, userInfoController);
 

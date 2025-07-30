@@ -6,7 +6,7 @@ import {
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
-import { users } from "./user";
+import { userBaseSchema, users } from "./user";
 import { createInsertSchema } from "drizzle-zod";
 import z from "zod/v4";
 import { InferSelectModel, relations } from "drizzle-orm";
@@ -63,10 +63,10 @@ export const validateVerificationCodeSchema = z.object({
   code: verificationCodeBaseSchema.shape.code,
 });
 
-// Export types
 export type ValidateVerificationCodeSchema = z.infer<
   typeof validateVerificationCodeSchema
 >;
+
 export type SelectVerificationCodeModel = InferSelectModel<
   typeof verificationCodes
 >;

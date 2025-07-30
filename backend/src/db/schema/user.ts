@@ -10,7 +10,10 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import z from "zod/v4";
 import { posts } from "./post";
-import { verificationCodes } from "./verificationCode";
+import {
+  verificationCodeBaseSchema,
+  verificationCodes,
+} from "./verificationCode";
 
 // Define user roles
 export const userRoles = pgEnum("user_roles", ["admin", "user"]);
@@ -31,7 +34,7 @@ export const users = pgTable("users", {
 // Define user relationsships
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
-  verificationCodes: many(verificationCodes)
+  verificationCodes: many(verificationCodes),
 }));
 
 // Define a base schema for creating a user
@@ -108,7 +111,26 @@ export const userUpdateSchema = z
     path: ["confirmPassword"], // Attaches the error to the confirm password field
   });
 
+export const userPasswordResetRequestSchema = z.object({
+  email: userBaseSchema.shape.email,
+});
+
+export const changePasswordSchema = z
+  .object({
+    code: verificationCodeBaseSchema.shape.code,
+    password: userBaseSchema.shape.password,
+    repeatPassword: userBaseSchema.shape.password,
+  })
+  .refine((data) => data.password === data.repeatPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"], // Attach the message to the confirm password field
+  });
+
 export type UserRegisterSchema = z.infer<typeof userRegisterSchema>;
 export type UserLoginSchema = z.infer<typeof userLoginSchema>;
 export type UserUpdateSchema = z.infer<typeof userUpdateSchema>;
+export type UserPasswordResetRequestSchema = z.infer<
+  typeof userPasswordResetRequestSchema
+>;
+export type ChangePasswordSchema = z.infer<typeof changePasswordSchema>;
 export type SelectUserModel = InferSelectModel<typeof users>;

@@ -5,6 +5,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { SessionUser } from "../types/services/user";
 import { loginUserService } from "../services/accountService";
 import { SelectUserModel } from "../db/schema/user";
+import env from "./env";
 
 // Define the passport config and strategies
 export default function passportConfig() {
@@ -57,4 +58,10 @@ export function generateSecureToken(length: number = 32) {
 export function sanitizeUser(unsafeUser: SelectUserModel): SessionUser {
   const { password: password_, ...safeUser } = unsafeUser satisfies SessionUser;
   return safeUser;
+}
+
+// Sets the expiry date for verification tokens
+export function getVerificationCodeExpiryDate(): Date {
+  const expiryDate = new Date(Date.now() + 1000 * 60 * env.VERIFICATION_CODE_DURATION)
+  return expiryDate;
 }

@@ -1,6 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import passport from "passport";
 import {
+  passwordResetChangePasswordService,
+  passwordResetRequestService,
+  passwordResetVerifyService,
   registerUserService,
   verifyUserService,
 } from "../services/accountService";
@@ -95,6 +98,77 @@ export async function verifyController(req: Request, res: Response) {
       res.status(200).json(verifyUserServiceResult.data);
     } else {
       res.status(400).json(verifyUserServiceResult);
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
+ * passwordResetRequestController
+ *
+ * Uses the passwordResetRequestService to generate a password reset code and email it to the user
+ * Returns success message or an error
+ */
+export async function passwordResetRequestController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const passwordResetRequestServiceResult = await passwordResetRequestService(
+      req.body.validatedData
+    );
+    if (!passwordResetRequestServiceResult.success) {
+      res.status(400).json(passwordResetRequestServiceResult);
+    } else {
+      res.status(200).json(passwordResetRequestServiceResult);
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
+ * passwordResetVerifyController
+ *
+ * Uses the passwordResetVerifyService to validate the password reset code
+ * Returns success message or an error
+ */
+export async function passwordResetVerifyController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const passwordResetVerifyServiceResult = await passwordResetVerifyService(
+      req.body.validatedData
+    );
+    if (!passwordResetVerifyServiceResult.success) {
+      res.status(400).json(passwordResetVerifyServiceResult);
+    } else {
+      res.status(200).json(passwordResetVerifyServiceResult);
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
+ * passwordResetChangePasswordController
+ *
+ * Uses the passwordResetChangePasswordService to change the users password if the verification code is valid
+ * Return success message or an error
+ */
+export async function passwordResetChangePasswordController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const passwordResetChangePasswordServiceResult =
+      await passwordResetChangePasswordService(req.body.validatedData);
+    if (!passwordResetChangePasswordServiceResult.success) {
+      res.status(400).json(passwordResetChangePasswordServiceResult);
+    } else {
+      res.status(200).json(passwordResetChangePasswordServiceResult);
     }
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });

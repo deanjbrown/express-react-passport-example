@@ -30,4 +30,19 @@ export function sendVerificationEmail(to: string, verificationCode: string) {
  * @param to The email address to send the verification email
  * @param verificationCode The verification code
  */
-export function sendPasswordResetEmail(to: string, verificationCode: string) {}
+export function sendPasswordResetEmail(to: string, verificationCode: string) {
+  const subject = "Reset your password";
+  const passwordResetURL = `${env.EXPRESS_HOST}:${env.EXPRESS_PORT}/account/verify_password_reset?verificationCode=${verificationCode}`;
+  // TODO => This also needs to be replaced with a HTML template
+  const content = `
+  <h1>Reset your password</h1>
+
+  <p>Please click the following link to verify your account</p>
+  <a href="${passwordResetURL}">Reset Password</a>
+
+  <p>If you can't click the link above, please copy and paste the following link into your browser</p>
+  <p>${passwordResetURL}</p>  
+  `;
+
+  sendEmail(to, subject, content);
+}
